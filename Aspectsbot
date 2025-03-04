@@ -1,0 +1,51 @@
+import asyncio
+import re
+import logging
+import threading
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+
+# ASPECTS scoring dictionary
+aspects_regions = {
+    "caudate": 1, "lentiform nucleus": 1, "internal capsule": 1,
+    "insular cortex": 1, "M1": 1, "M2": 1, "M3": 1,
+    "M4": 1, "M5": 1, "M6": 1
+}
+
+# Function to calculate ASPECTS score
+def get_aspects_score(report_text):
+    score = 10
+    affected_regions = []
+
+    for region in aspects_regions:
+        if re.search(region, report_text, re.IGNORECASE):
+            score -= aspects_regions[region]
+            affected_regions.append(region)
+
+    return score, affected_regions
+
+# Function to handle incoming messages
+async def handle_message(update: Update, context: CallbackContext):
+    user_text = update.message.text
+    aspects_score, affected = get_aspects_score(user_text)
+    response = f"**ASPECTS Score: {aspects_score}/10**\nAffected Regions: {', '.join(affected) if affected else 'None'}"
+    
+    await update.message.reply_text(response)
+
+# Start command
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("Send me a CT report, and I'll calculate the ASPECTS score!")
+
+# Function to run the bot in a thread
+def run_bot():
+    TOKEN = "7638438225:AAHAxNY4aWAHoo429dFqQU79UqrbNR0sprw"
+    app = Application.builder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    print("Bot is running in a background thread...")
+    app.run_polling()
+
+# Start the bot in a separate thread
+threading.Thread(target=run_bot, daemon=True).start()
